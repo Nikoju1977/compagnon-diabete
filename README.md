@@ -1,5 +1,12 @@
 # 💙 Compagnon Diabète
 
+## Ce que fait l'application, en pratique
+
+Le dépôt contient une déclinaison de l'interface **DAPHNÉE OMNI — ONLINE**, pensée comme **compagnon d'information sur le diabète de type 1**. Elle explore une présentation mobile, des échanges assistés et des options de connexion à des services liés au suivi.
+
+**Statut :** variante documentaire et expérimentale. Un contrôle affiché « connexion pompe » **n'atteste d'aucune interopérabilité médicale opérationnelle** ; ne pas l'utiliser pour commander une pompe ou déterminer une dose d'insuline.
+
+
 > **Statut portfolio (octobre 2026) — variante conservée, non sélectionnée dans la vitrine.** Cette version expérimentale DAPHNÉE OMNI ne figure plus dans la vitrine principale. Le prototype OPENVITA-DT1 est la référence retenue pour le suivi DT1. Aucun des deux ne remplace un professionnel de santé. Voir [la politique de sélection](https://github.com/Nikoju1977/Nikoju1977/blob/main/CURATION.md) et [le projet de référence](https://github.com/Nikoju1977/OPENVITA-DT1).
 
 **Studio Niko Design** — Compagnon IA pour patients diabétiques.
