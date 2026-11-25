@@ -98,11 +98,11 @@ async function main(){
   await add('120','mg/dL','SYNTHETIC_DAPHNEE_ONLY');
   await add('6.5','mmol/L','<img src=x onerror=alert(1)>','2026-11-25T11:00');
   assert.equal(await count(),2);assert.equal(await evaluate('document.querySelectorAll("#entries img").length'),0);
-  assert.match(await history(),/<img src=x onerror=alert\(1\)>/);
+  assert.ok((await history()).includes("<img src=x onerror=alert(1)>"));
   await perform(()=>{const f=document.querySelector('#filter-unit');f.value='mg/dL';f.dispatchEvent(new Event('change'))});
-  assert.equal(await count(),1);assert.match(await history(),/120 mg\/dL/);
+  assert.equal(await count(),1);assert.ok((await history()).includes("120 mg/dL"));
   await perform(()=>{document.querySelector('#entries button').click();document.querySelector('#reading').value='121';document.querySelector('#entry-form').requestSubmit()});
-  assert.match(await history(),/121 mg\/dL/);
+  assert.ok((await history()).includes("121 mg/dL"));
   await perform(()=>{const f=document.querySelector('#filter-unit');f.value='';f.dispatchEvent(new Event('change'));const orig=URL.createObjectURL.bind(URL);URL.createObjectURL=b=>{window.__qaBlob=b;return orig(b)};localStorage.setItem('qa-unrelated-key','keep')});
   const snapshot=await history();
   await exportBackup(pass,wrong);assert.match(await status(),/diffèrent/);assert.equal(await evaluate('!!window.__qaBlob'),false);
