@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta name="description" content="DAPHNÉE OMNI — maquette historique non médicale · Studio Niko Design">
+<meta name="description" content="DAPHNÉE OMNI — journal descriptif local · Studio Niko Design">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
     <meta name="theme-color" content="#0a0e14">
-    <title>DAPHNÉE OMNI — DÉMONSTRATION</title>
+    <title>DAPHNÉE OMNI — JOURNAL LOCAL</title>
 
     <style>
         :root {
@@ -241,17 +241,100 @@
 <link rel="manifest" href="manifest.json">
 </head>
 <body>
-    <main class="app-shell" aria-labelledby="app-title">
-        <h1 id="app-title">DAPHNÉE OMNI — Démonstration</h1>
-        <p>Maquette historique Studio Niko Design. Aucun dispositif médical connecté.</p>
-        <div class="status-line"><span>IA : suspendue</span><span>Bluetooth : suspendu</span></div>
-        <div class="monitor" role="region" aria-label="Disponibilité des mesures">
-            <div class="gly-big" aria-label="Aucune mesure disponible">—</div>
-            <div class="unit">Aucune glycémie mesurée · aucun calcul de bolus</div>
-        </div>
-        <p class="ai-zone" role="status">Fonctions médicales, caméra, microphone et services distants désactivés : leur qualification n'est pas établie.</p>
-        <p>Ne saisissez aucune donnée de santé ou clé API. Les anciens identifiants enregistrés par les versions précédentes ne sont ni lus ni supprimés automatiquement. La suppression des données du site dans le navigateur peut affecter d'autres applications hébergées sur la même origine.</p>
-    </main>
+    
+<main class="app-shell" aria-labelledby="app-title">
+<h1 id="app-title">DAPHNÉE OMNI — Journal local</h1>
+<p>Journal descriptif Studio Niko Design. Saisie manuelle uniquement. Aucun calcul de dose, aucune lecture de pompe et aucune interprétation clinique. Utiliser des données fictives pendant la qualification.</p>
+<form id="entry-form" class="journal-form">
+<label for="reading">Observation glycémique déclarée</label>
+<input id="reading" type="number" inputmode="decimal" min="0.000001" step="any" required placeholder="Valeur relevée">
+<label for="unit">Unité du relevé</label><select id="unit" required><option value="">Choisir l'unité</option><option>mg/dL</option><option>mmol/L</option><option>g/L</option></select>
+<label for="observed">Date et heure locale de l'observation</label><input id="observed" type="datetime-local" required>
+<label for="note">Note facultative (500 caractères)</label><textarea id="note" maxlength="500" rows="2"></textarea>
+<button type="submit" id="add-entry">Ajouter l'observation</button><button type="button" id="cancel-edit" hidden>Annuler la modification</button>
+</form>
+<section aria-labelledby="history-title"><h2 id="history-title">Historique</h2><p id="entry-count"></p><label for="filter-unit">Filtrer par unité</label><select id="filter-unit"><option value="">Toutes les unités</option><option>mg/dL</option><option>mmol/L</option><option>g/L</option></select><ul id="entries" class="journal-list"></ul></section>
+<section aria-labelledby="backup-title"><h2 id="backup-title">Sauvegarde chiffrée</h2><p>Le journal reste en mémoire jusqu'à fermeture ou actualisation de la page. Téléchargez une sauvegarde avant de quitter. Choisissez une phrase secrète unique d'au moins 12 caractères : elle n'est pas conservée et ne peut pas être récupérée. La restauration remplace le journal courant après confirmation.</p><label for="secret">Phrase secrète de sauvegarde</label><input id="secret" type="password" autocomplete="new-password" minlength="12" maxlength="256"><button id="export-journal" type="button">Télécharger la sauvegarde AES-GCM</button><label for="import-journal">Sélectionner une sauvegarde chiffrée</label><input id="import-journal" type="file" accept=".json,application/json"><button id="restore-journal" type="button">Restaurer</button><button id="clear-journal" type="button">Effacer le journal en mémoire</button></section>
+<p id="journal-status" role="status" aria-live="polite"></p>
+<p>Les données des anciennes versions ne sont ni lues ni supprimées automatiquement. Cette interface ne transmet pas les observations à un fournisseur externe.</p>
+</main>
+<style>
+.app-shell{box-sizing:border-box;max-width:760px!important;padding:20px!important}
+.app-shell h1{font-size:1.5rem}.app-shell h2{font-size:1.15rem;margin-top:1.5rem}
+.journal-form,.app-shell section{display:grid;gap:9px}
+.app-shell input,.app-shell select,.app-shell textarea,.app-shell button{font:inherit;box-sizing:border-box;max-width:100%;width:100%;padding:11px;border:1px solid #52717d;border-radius:8px;background:#0b202b;color:#e8faff}
+.app-shell button{cursor:pointer;background:#154b58;font-weight:bold}.app-shell button:disabled{opacity:.5;cursor:wait}
+.journal-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}.journal-list li{padding:12px;border:1px solid #52717d;border-radius:9px;overflow-wrap:anywhere}.journal-list li button{margin-top:8px}.journal-list li p{white-space:pre-wrap}
+#journal-status{min-height:1.5em;color:#b8e5e5} [hidden]{display:none!important}
+</style>
+<script>
+(function(){
+"use strict";
+function validateEntry(x){
+  if(!x||typeof x!=="object"||Array.isArray(x))throw Error("Observation invalide.");
+  if(typeof x.id!=="string"||!/^[a-zA-Z0-9-]{1,80}$/.test(x.id))throw Error("Identifiant invalide.");
+  if(typeof x.date!=="string"||!Number.isFinite(Date.parse(x.date))||new Date(x.date).toISOString()!==x.date)throw Error("Date invalide.");
+  if(!["mg/dL","mmol/L","g/L"].includes(x.unit))throw Error("Unité invalide.");
+  if(typeof x.value!=="number"||!Number.isFinite(x.value)||x.value<=0||x.value>1000000)throw Error("Valeur invalide.");
+  if(typeof x.note!=="string"||x.note.length>500)throw Error("Note invalide.");
+  return {id:x.id,date:x.date,unit:x.unit,value:x.value,note:x.note};
+}
+function validateJournal(x){
+  if(!x||x.version!==1||!Array.isArray(x.entries)||x.entries.length>5000)throw Error("Format de journal invalide.");
+  const ids=new Set();
+  return x.entries.map(e=>{const v=validateEntry(e);if(ids.has(v.id))throw Error("Identifiant dupliqué.");ids.add(v.id);return v;});
+}
+const $=id=>document.getElementById(id);
+let entries=[],editing=null,busy=false;
+const say=t=>{$("journal-status").textContent=t;};
+function localDate(d){const z=new Date(d.getTime()-d.getTimezoneOffset()*60000);return z.toISOString().slice(0,16);}
+function reset(){editing=null;$("entry-form").reset();$("observed").value=localDate(new Date());$("add-entry").textContent="Ajouter l'observation";$("cancel-edit").hidden=true;}
+function render(){
+  const root=$("entries");root.replaceChildren();
+  const list=entries.filter(e=>!$("filter-unit").value||e.unit===$("filter-unit").value).sort((a,b)=>b.date.localeCompare(a.date));
+  $("entry-count").textContent=list.length+" observation(s) affichée(s) / "+entries.length;
+  for(const e of list){
+    const li=document.createElement("li"), title=document.createElement("strong"), note=document.createElement("p");
+    title.textContent=e.value+" "+e.unit+" — "+new Date(e.date).toLocaleString("fr-FR")+" (saisie manuelle)";
+    note.textContent=e.note;li.append(title,note);
+    for(const [label,action] of [["Modifier",()=>{editing=e.id;$("reading").value=e.value;$("unit").value=e.unit;$("observed").value=localDate(new Date(e.date));$("note").value=e.note;$("add-entry").textContent="Enregistrer la modification";$("cancel-edit").hidden=false;$("reading").focus();}],["Supprimer",()=>{if(confirm("Supprimer cette observation ?")){entries=entries.filter(x=>x.id!==e.id);if(editing===e.id)reset();render();say("Observation supprimée.");}}]]){
+      const b=document.createElement("button");b.type="button";b.textContent=label;b.addEventListener("click",()=>{if(!busy)action();});li.append(b);
+    }root.append(li);
+  }
+}
+$("entry-form").addEventListener("submit",ev=>{ev.preventDefault();if(busy)return;try{
+  const d=new Date($("observed").value);if(!Number.isFinite(d.getTime()))throw Error("Date invalide.");
+  if(!editing&&entries.length>=5000)throw Error("Limite de 5000 observations atteinte.");
+  const id=editing||Array.from(crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,"0")).join("");
+  const e=validateEntry({id,date:d.toISOString(),value:$("reading").valueAsNumber,unit:$("unit").value,note:$("note").value});
+  entries=editing?entries.map(x=>x.id===editing?e:x):[...entries,e];reset();render();say("Observation enregistrée en mémoire. Sauvegardez avant de quitter.");
+}catch(err){say(err.message);}});
+$("cancel-edit").addEventListener("click",reset);
+$("filter-unit").addEventListener("change",render);
+function secret(){const p=$("secret").value;if(p.length<12||p.length>256)throw Error("Phrase secrète : 12 à 256 caractères.");if(!globalThis.crypto?.subtle)throw Error("Chiffrement indisponible : utiliser HTTPS ou localhost.");return p;}
+const enc=new TextEncoder(),dec=new TextDecoder("utf-8",{fatal:true});
+function b64(a){let s="";for(let i=0;i<a.length;i+=8192)s+=String.fromCharCode(...a.subarray(i,i+8192));return btoa(s);}
+function un64(s){if(typeof s!=="string")throw Error("Sauvegarde invalide.");return Uint8Array.from(atob(s),x=>x.charCodeAt(0));}
+async function key(p,salt){const base=await crypto.subtle.importKey("raw",enc.encode(p),"PBKDF2",false,["deriveKey"]);return crypto.subtle.deriveKey({name:"PBKDF2",hash:"SHA-256",salt,iterations:600000},base,{name:"AES-GCM",length:256},false,["encrypt","decrypt"]);}
+async function guarded(fn){if(busy)return;busy=true;for(const id of ["export-journal","restore-journal","clear-journal","add-entry"])$(id).disabled=true;try{await fn();}catch(e){say("Opération impossible : "+e.message);}finally{busy=false;$("secret").value="";for(const id of ["export-journal","restore-journal","clear-journal","add-entry"])$(id).disabled=false;}}
+$("export-journal").addEventListener("click",()=>guarded(async()=>{
+  const p=secret(),salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12)),k=await key(p,salt);
+  const bytes=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv},k,enc.encode(JSON.stringify({version:1,entries}))));
+  const blob=new Blob([JSON.stringify({format:"daphnee-journal-v1",salt:b64(salt),iv:b64(iv),ciphertext:b64(bytes)})],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="daphnee-journal-chiffre.json";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);say("Téléchargement demandé. Vérifiez que le fichier a bien été enregistré.");
+}));
+$("restore-journal").addEventListener("click",()=>guarded(async()=>{
+  const p=secret(),f=$("import-journal").files[0];if(!f||f.size>20000000)throw Error("Choisir une sauvegarde de moins de 20 Mo.");
+  const w=JSON.parse(await f.text());if(w?.format!=="daphnee-journal-v1")throw Error("Format inconnu.");
+  const salt=un64(w.salt),iv=un64(w.iv),bytes=un64(w.ciphertext);if(salt.length!==16||iv.length!==12||bytes.length<16)throw Error("Sauvegarde invalide.");
+  let plain;try{plain=await crypto.subtle.decrypt({name:"AES-GCM",iv},await key(p,salt),bytes);}catch(e){throw Error("Phrase secrète incorrecte ou fichier altéré.");}
+  const restored=validateJournal(JSON.parse(dec.decode(plain)));
+  if(!confirm("Remplacer le journal courant par "+restored.length+" observation(s) ?")){say("Restauration annulée.");return;}
+  entries=restored;reset();render();$("import-journal").value="";say("Sauvegarde restaurée.");
+}));
+$("clear-journal").addEventListener("click",()=>{if(!busy&&confirm("Effacer toutes les observations en mémoire ? Cette action ne supprime pas les fichiers de sauvegarde.")){entries=[];reset();render();say("Journal en mémoire effacé.");}});
+reset();render();
+})();
+</script>
 
 <footer style="margin-top:24px;padding:14px 16px;background:#0a1418;border-top:1px solid #00ff9d33;color:#9fb4ba;font-size:12px;line-height:1.5;text-align:center;">⚠️ Cet outil est fourni à titre informatif et de suivi personnel. Il ne remplace pas l'avis, le diagnostic ou le traitement d'un professionnel de santé. En cas d'urgence, appelez le 15 (SAMU) ou le 112.</footer>
 <!-- STUDIO NIKO — MODE D'EMPLOI INTÉGRÉ. Conserver ce bloc lors d'une mise à jour. -->
@@ -306,9 +389,9 @@
     <h2 id="studio-niko-guide-title">compagnon-diabete</h2>
     <p>Variante de compagnon de suivi du diabète.</p>
     <h3>Premiers pas</h3>
-    <ol><li>Consultez la maquette historique ; les connexions et mesures sont désactivées.</li><li>Aucune donnée médicale ni clé API n'est demandée.</li><li>Utilisez uniquement vos dispositifs médicaux et les recommandations de votre équipe soignante pour toute décision.</li></ol>
+    <ol><li>Choisissez l’unité et saisissez une observation fictive.</li><li>Téléchargez une sauvegarde chiffrée avant de quitter.</li><li>Utilisez uniquement vos dispositifs médicaux et les recommandations de votre équipe soignante pour toute décision.</li></ol>
     <h3>Avant de commencer</h3>
-    <p>Version secondaire ou historique : ses fonctions peuvent différer des projets principaux.</p>
+    <p>Journal descriptif local ; aucune connexion médicale ni recommandation thérapeutique.</p>
     <div class="sn-guide-warning" role="note">Application expérimentale non certifiée, ne commande pas une pompe à insuline.</div>
     <h3>En cas de problème</h3>
     <p>En cas de page vide ou d&#39;erreur : rechargez une fois, vérifiez la connexion et les permissions ; sur une PWA déjà installée, fermez-la puis rouvrez-la pour actualiser son cache. Consultez le dépôt GitHub si le problème persiste.</p>
