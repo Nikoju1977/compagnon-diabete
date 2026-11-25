@@ -1,30 +1,36 @@
-# Compagnon Diabète — DAPHNÉE OMNI · Maquette historique
+# DAPHNÉE OMNI — Journal local · Studio Niko Design
 
-**Studio Niko Design — historical non-medical interface**
+**Functional descriptive journal, not a clinical decision tool.**
 
-> **Correctif P0 du 25 novembre 2026 :** les chemins de calcul de bolus, de lecture Bluetooth, de dialogue IA, de capture caméra et de reconnaissance vocale ont été retirés de l'entrée HTML publique. Aucune mesure ou dose n'est présentée ; aucune clé API n'est demandée. [Commit source](https://github.com/Nikoju1977/compagnon-diabete/commit/d773c0a540ac858a21898b4a1c4c27911725d4e5).
+[Application](https://nikoju1977.github.io/compagnon-diabete/) (déploiement de la révision non vérifié) · [Commit fonctionnel](https://github.com/Nikoju1977/compagnon-diabete/commit/a41a5043e37fdb3ceb4b39890ab54011d04381a2).
 
-La version précédente comportait un décodage Bluetooth non qualifié, une formule de bolus non validée, des valeurs de graphique fictives et un stockage de clé non chiffré. Elle ne doit pas servir à une décision de traitement. Le code historique reste dans l'historique Git, sous sa licence existante.
+## Fonctions implémentées
 
-## Architecture actuelle
+- Saisie manuelle, date et unité explicites (mg/dL, mmol/L, g/L), notes, modification, suppression et filtrage.
+- Historique des observations réellement saisies, sans valeurs initiales fictives.
+- Sauvegarde et restauration JSON chiffrées par Web Crypto : AES-GCM 256, PBKDF2 SHA-256 (600 000 itérations), sel et IV aléatoires. Phrase secrète non enregistrée.
+- Journal en mémoire : sauvegarder avant fermeture ou actualisation ; aucune persistance automatique des observations.
+- Aucun envoi distant des observations, aucune clé API demandée. L'ancien stockage n'est ni lu ni supprimé automatiquement.
 
 ```mermaid
 flowchart LR
-  Page[Static historical interface] --> Status[Measurements unavailable]
-  Page --> Help[Integrated help]
-  Help --> Local[Optional help positioning preference]
+  Form[Manual input] --> Validate[Strict input validation]
+  Validate --> Memory[In-memory journal]
+  Memory --> History[Edit filter delete]
+  Memory --> Encrypt[Encrypted backup]
+  Encrypt --> File[Local file]
+  File --> Restore[Decrypt and validate]
+  Restore --> Memory
 ```
 
-- Maquette statique [index.html](index.html), sans moteur clinique ni connexion à un appareil médical.
-- Guide intégré conservé. Aucun accès aux anciennes clés ni suppression automatique des données locales ; les données d'anciennes versions peuvent subsister.
-- Aucune démonstration en production ni installation PWA n'est validée ici. Une ancienne copie téléchargée ou mise en cache peut encore contenir le code historique.
+## Qualification
 
-## Qualification et confidentialité
+Treize assertions de validation des entrées et du format de journal ont réussi dans un environnement JavaScript lors de la création du correctif ; la source a été relue après commit. Ces assertions ne couvrent pas le navigateur, le chiffrement en exécution, le téléchargement, la restauration complète, le mobile ou le déploiement. Tester exclusivement avec des données fictives avant toute qualification. HTTPS ou localhost requis pour Web Crypto.
 
-La source publiée a été relue après commit : les chemins visés ont été retirés. Aucun test navigateur, appareil physique, appel fournisseur ou validation clinique n'est revendiqué. Ne jamais utiliser la maquette pour déterminer un traitement. Avant d'effacer les données d'une origine web, tenir compte des autres applications partageant cette origine.
+Les fonctions historiques de calcul de bolus, lecture Bluetooth non qualifiée, IA distante, caméra et microphone ne sont pas réactivées. Une future intégration nécessite un décodage conforme, des protections de données et une qualification indépendante. Aucun conseil thérapeutique, diagnostic ou alarme.
 
 ## English overview
 
-The current HTML entry point is a historical, non-medical mockup. Unvalidated glucose and bolus logic, Bluetooth device access, remote AI, camera and voice paths have been removed from the entry point. No new runtime or deployment verification was performed. Old cached versions may still exist.
+Functional manual observation journal with editing, filtering, deletion and password-encrypted backup/restore code. No clinical interpretation, pump control or dose calculation. Thirteen input-validation assertions passed; browser and cryptographic end-to-end tests remain outstanding. Use synthetic data only until qualified.
 
-[Existing rights notice](LICENSE.md) — unchanged. [Studio Niko Design](https://github.com/Nikoju1977).
+[Existing rights notice](LICENSE.md) — unchanged.
