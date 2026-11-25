@@ -34,3 +34,11 @@ Les fonctions historiques de calcul de bolus, lecture Bluetooth non qualifiée, 
 Functional manual observation journal with editing, filtering, deletion and password-encrypted backup/restore code. No clinical interpretation, pump control or dose calculation. Thirteen input-validation assertions passed; browser and cryptographic end-to-end tests remain outstanding. Use synthetic data only until qualified.
 
 [Existing rights notice](LICENSE.md) — unchanged.
+
+## Qualification navigateur — 25 novembre 2026
+
+La sauvegarde exige une confirmation de phrase secrète. Un avertissement navigateur est demandé avant de quitter un journal modifié en mémoire ; par prudence il subsiste après la demande de téléchargement, qui ne prouve pas que le fichier a été enregistré. Le navigateur peut ignorer cet avertissement sur mobile. La restauration validée et l'effacement le réinitialisent.
+
+Le [test Chromium](tests/browser-journal.cjs) couvre les unités explicites, la modification, le filtrage, la suppression, les notes traitées comme texte, Web Crypto, les mots de passe, le rejet des fichiers altérés, l'annulation et la restauration, la mémoire volatile, la préservation des clés étrangères, le viewport mobile simulé et l'absence de POST. Exécuter `node tests/browser-journal.cjs` avec Node disposant de WebSocket, Chrome/Chromium et Python 3. [CI](.github/workflows/browser-journal.yml) ; résultat à vérifier. Données fictives uniquement, aucune qualification clinique ou sur appareil physique.
+
+Le banc de test indépendant reprend le code de test [NikoAssist](https://github.com/Nikoju1977/Nikoassist/blob/main/web/browser-smoke.cjs) et [OpenVita](https://github.com/Nikoju1977/OPENVITA-DT1/blob/main/tests/browser-vault.cjs), sous GPL-3.0-or-later ; [licence](tests/LICENSE-GPL-3.0). La notice de droits du code applicatif est inchangée.
