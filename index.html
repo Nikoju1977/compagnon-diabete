@@ -254,7 +254,7 @@
 <button type="submit" id="add-entry">Ajouter l'observation</button><button type="button" id="cancel-edit" hidden>Annuler la modification</button>
 </form>
 <section aria-labelledby="history-title"><h2 id="history-title">Historique</h2><p id="entry-count"></p><label for="filter-unit">Filtrer par unité</label><select id="filter-unit"><option value="">Toutes les unités</option><option>mg/dL</option><option>mmol/L</option><option>g/L</option></select><ul id="entries" class="journal-list"></ul></section>
-<section aria-labelledby="backup-title"><h2 id="backup-title">Sauvegarde chiffrée</h2><p>Le journal reste en mémoire jusqu'à fermeture ou actualisation de la page. Téléchargez une sauvegarde avant de quitter. Choisissez une phrase secrète unique d'au moins 12 caractères : elle n'est pas conservée et ne peut pas être récupérée. La restauration remplace le journal courant après confirmation.</p><label for="secret">Phrase secrète de sauvegarde</label><input id="secret" type="password" autocomplete="new-password" minlength="12" maxlength="256"><button id="export-journal" type="button">Télécharger la sauvegarde AES-GCM</button><label for="import-journal">Sélectionner une sauvegarde chiffrée</label><input id="import-journal" type="file" accept=".json,application/json"><button id="restore-journal" type="button">Restaurer</button><button id="clear-journal" type="button">Effacer le journal en mémoire</button></section>
+<section aria-labelledby="backup-title"><h2 id="backup-title">Sauvegarde chiffrée</h2><p>Le journal reste en mémoire jusqu'à fermeture ou actualisation de la page. Téléchargez une sauvegarde avant de quitter. Choisissez une phrase secrète unique d'au moins 12 caractères : elle n'est pas conservée et ne peut pas être récupérée. La restauration remplace le journal courant après confirmation.</p><label for="secret">Phrase secrète de sauvegarde</label><input id="secret" type="password" autocomplete="new-password" minlength="12" maxlength="256"><label for="secret-confirm">Confirmer la phrase secrète (export uniquement)</label><input id="secret-confirm" type="password" autocomplete="new-password" minlength="12" maxlength="256"><button id="export-journal" type="button">Télécharger la sauvegarde AES-GCM</button><label for="import-journal">Sélectionner une sauvegarde chiffrée</label><input id="import-journal" type="file" accept=".json,application/json"><button id="restore-journal" type="button">Restaurer</button><button id="clear-journal" type="button">Effacer le journal en mémoire</button></section>
 <p id="journal-status" role="status" aria-live="polite"></p>
 <p>Les données des anciennes versions ne sont ni lues ni supprimées automatiquement. Cette interface ne transmet pas les observations à un fournisseur externe.</p>
 </main>
@@ -285,7 +285,8 @@ function validateJournal(x){
   return x.entries.map(e=>{const v=validateEntry(e);if(ids.has(v.id))throw Error("Identifiant dupliqué.");ids.add(v.id);return v;});
 }
 const $=id=>document.getElementById(id);
-let entries=[],editing=null,busy=false;
+let entries=[],editing=null,busy=false,dirty=false;
+window.addEventListener("beforeunload",e=>{if(dirty){e.preventDefault();e.returnValue="";}});
 const say=t=>{$("journal-status").textContent=t;};
 function localDate(d){const z=new Date(d.getTime()-d.getTimezoneOffset()*60000);return z.toISOString().slice(0,16);}
 function reset(){editing=null;$("entry-form").reset();$("observed").value=localDate(new Date());$("add-entry").textContent="Ajouter l'observation";$("cancel-edit").hidden=true;}
@@ -297,7 +298,7 @@ function render(){
     const li=document.createElement("li"), title=document.createElement("strong"), note=document.createElement("p");
     title.textContent=e.value+" "+e.unit+" — "+new Date(e.date).toLocaleString("fr-FR")+" (saisie manuelle)";
     note.textContent=e.note;li.append(title,note);
-    for(const [label,action] of [["Modifier",()=>{editing=e.id;$("reading").value=e.value;$("unit").value=e.unit;$("observed").value=localDate(new Date(e.date));$("note").value=e.note;$("add-entry").textContent="Enregistrer la modification";$("cancel-edit").hidden=false;$("reading").focus();}],["Supprimer",()=>{if(confirm("Supprimer cette observation ?")){entries=entries.filter(x=>x.id!==e.id);if(editing===e.id)reset();render();say("Observation supprimée.");}}]]){
+    for(const [label,action] of [["Modifier",()=>{editing=e.id;$("reading").value=e.value;$("unit").value=e.unit;$("observed").value=localDate(new Date(e.date));$("note").value=e.note;$("add-entry").textContent="Enregistrer la modification";$("cancel-edit").hidden=false;$("reading").focus();}],["Supprimer",()=>{if(confirm("Supprimer cette observation ?")){entries=entries.filter(x=>x.id!==e.id);dirty=true;if(editing===e.id)reset();render();say("Observation supprimée.");}}]]){
       const b=document.createElement("button");b.type="button";b.textContent=label;b.addEventListener("click",()=>{if(!busy)action();});li.append(b);
     }root.append(li);
   }
@@ -307,7 +308,7 @@ $("entry-form").addEventListener("submit",ev=>{ev.preventDefault();if(busy)retur
   if(!editing&&entries.length>=5000)throw Error("Limite de 5000 observations atteinte.");
   const id=editing||Array.from(crypto.getRandomValues(new Uint8Array(16)),v=>v.toString(16).padStart(2,"0")).join("");
   const e=validateEntry({id,date:d.toISOString(),value:$("reading").valueAsNumber,unit:$("unit").value,note:$("note").value});
-  entries=editing?entries.map(x=>x.id===editing?e:x):[...entries,e];reset();render();say("Observation enregistrée en mémoire. Sauvegardez avant de quitter.");
+  entries=editing?entries.map(x=>x.id===editing?e:x):[...entries,e];dirty=true;reset();render();say("Observation enregistrée en mémoire. Sauvegardez avant de quitter.");
 }catch(err){say(err.message);}});
 $("cancel-edit").addEventListener("click",reset);
 $("filter-unit").addEventListener("change",render);
@@ -316,9 +317,9 @@ const enc=new TextEncoder(),dec=new TextDecoder("utf-8",{fatal:true});
 function b64(a){let s="";for(let i=0;i<a.length;i+=8192)s+=String.fromCharCode(...a.subarray(i,i+8192));return btoa(s);}
 function un64(s){if(typeof s!=="string")throw Error("Sauvegarde invalide.");return Uint8Array.from(atob(s),x=>x.charCodeAt(0));}
 async function key(p,salt){const base=await crypto.subtle.importKey("raw",enc.encode(p),"PBKDF2",false,["deriveKey"]);return crypto.subtle.deriveKey({name:"PBKDF2",hash:"SHA-256",salt,iterations:600000},base,{name:"AES-GCM",length:256},false,["encrypt","decrypt"]);}
-async function guarded(fn){if(busy)return;busy=true;for(const id of ["export-journal","restore-journal","clear-journal","add-entry"])$(id).disabled=true;try{await fn();}catch(e){say("Opération impossible : "+e.message);}finally{busy=false;$("secret").value="";for(const id of ["export-journal","restore-journal","clear-journal","add-entry"])$(id).disabled=false;}}
+async function guarded(fn){if(busy)return;busy=true;for(const id of ["export-journal","restore-journal","clear-journal","add-entry"])$(id).disabled=true;try{await fn();}catch(e){say("Opération impossible : "+e.message);}finally{busy=false;$("secret").value="";$("secret-confirm").value="";for(const id of ["export-journal","restore-journal","clear-journal","add-entry"])$(id).disabled=false;}}
 $("export-journal").addEventListener("click",()=>guarded(async()=>{
-  const p=secret(),salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12)),k=await key(p,salt);
+  const p=secret();if(p!==$("secret-confirm").value)throw Error("Les phrases secrètes diffèrent.");const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12)),k=await key(p,salt);
   const bytes=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv},k,enc.encode(JSON.stringify({version:1,entries}))));
   const blob=new Blob([JSON.stringify({format:"daphnee-journal-v1",salt:b64(salt),iv:b64(iv),ciphertext:b64(bytes)})],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="daphnee-journal-chiffre.json";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);say("Téléchargement demandé. Vérifiez que le fichier a bien été enregistré.");
 }));
@@ -329,9 +330,9 @@ $("restore-journal").addEventListener("click",()=>guarded(async()=>{
   let plain;try{plain=await crypto.subtle.decrypt({name:"AES-GCM",iv},await key(p,salt),bytes);}catch(e){throw Error("Phrase secrète incorrecte ou fichier altéré.");}
   const restored=validateJournal(JSON.parse(dec.decode(plain)));
   if(!confirm("Remplacer le journal courant par "+restored.length+" observation(s) ?")){say("Restauration annulée.");return;}
-  entries=restored;reset();render();$("import-journal").value="";say("Sauvegarde restaurée.");
+  entries=restored;dirty=false;reset();render();$("import-journal").value="";say("Sauvegarde restaurée.");
 }));
-$("clear-journal").addEventListener("click",()=>{if(!busy&&confirm("Effacer toutes les observations en mémoire ? Cette action ne supprime pas les fichiers de sauvegarde.")){entries=[];reset();render();say("Journal en mémoire effacé.");}});
+$("clear-journal").addEventListener("click",()=>{if(!busy&&confirm("Effacer toutes les observations en mémoire ? Cette action ne supprime pas les fichiers de sauvegarde.")){entries=[];dirty=false;reset();render();say("Journal en mémoire effacé.");}});
 reset();render();
 })();
 </script>
